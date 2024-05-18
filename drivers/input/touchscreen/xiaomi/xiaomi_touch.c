@@ -324,6 +324,40 @@ int update_palm_sensor_value(int value)
 }
 EXPORT_SYMBOL_GPL(update_palm_sensor_value);
 
+static unsigned int double_tap_status = 0;
+static ssize_t double_tap_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", double_tap_status);
+}
+
+static ssize_t double_tap_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	unsigned int input;
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+	struct xiaomi_touch_interface *touch_data = pdata->touch_data[0];
+	int ret;
+
+	if (sscanf(buf, "%d", &input) < 0)
+		return -EINVAL;
+
+	if (touch_data->setModeValue) {
+		ret = touch_data->setModeValue(Touch_Doubletap_Mode, input);
+
+		if (!ret) {
+			double_tap_status = input;
+			pr_info("%s : set double tap to %d\n", __func__,
+				double_tap_status);
+		}
+	} else {
+		pr_err("%s : setModeValue not implemented\n", __func__);
+	}
+
+	return count;
+}
+
 static ssize_t palm_sensor_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -1145,6 +1179,8 @@ static ssize_t fod_press_status_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->fod_press_status_value);
 }
 
+static DEVICE_ATTR(double_tap, 0644, double_tap_show, double_tap_store);
+
 static DEVICE_ATTR(touch_thp_cmd_data, (0664), thp_cmd_data_show,
 		   thp_cmd_data_store);
 
@@ -1213,6 +1249,7 @@ static DEVICE_ATTR(gesture_single_tap_state, (0664),
 		   gesture_single_tap_value_show, NULL);
 
 static struct attribute *touch_attr_group[] = {
+	&dev_attr_double_tap.attr,
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
 	&dev_attr_touch_thp_cmd.attr,
