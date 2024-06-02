@@ -1133,6 +1133,13 @@ fod_longpress_gesture_enabled_store(struct device *dev,
 		return -ENOMEM;
 	if (sscanf(buf, "%d", &input) < 0 || input > 1)
 		return -EINVAL;
+
+	if (touch_data->getModeValue(Touch_Fod_Longpress_Gesture,
+				     GET_CUR_VALUE) != input) {
+		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+			     "fod_longpress_gesture_enabled");
+	}
+
 	touch_data->setModeValue(Touch_Fod_Longpress_Gesture, input);
 	return count;
 }
