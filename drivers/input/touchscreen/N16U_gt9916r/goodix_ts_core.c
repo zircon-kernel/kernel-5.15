@@ -3115,6 +3115,12 @@ static int goodix_set_cur_value(int gtp_mode, int gtp_value)
 		queue_work(goodix_core_data->gesture_wq, &goodix_core_data->gesture_work);
 		return 0;
 	}
+	if (gtp_mode ==  Touch_Fod_Longpress_Gesture && goodix_core_data && gtp_value >= 0) {
+		goodix_core_data->fod_status = gtp_value;
+		ts_info("Touch_Fod_Longpress_Gesture value [%d]\n", gtp_value);
+		queue_work(goodix_core_data->gesture_wq, &goodix_core_data->gesture_work);
+		return 0;
+	}
 	if (gtp_mode ==  Touch_FodIcon_Enable && goodix_core_data && gtp_value >= 0) {
 		goodix_core_data->fod_icon_status = gtp_value;
 		ts_info("Touch_FodIcon_Enable value [%d]\n", gtp_value);
