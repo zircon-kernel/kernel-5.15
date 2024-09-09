@@ -739,15 +739,15 @@ static void ufs_mtk_wait_idle_state(struct ufs_hba *hba,
 	u32 val, sm;
 	bool wait_idle;
 
-	timeout = sched_clock() + retry_ms * 1000000UL;
-
+	/* cannot use plain ktime_get() in suspend */
+	timeout = ktime_get_mono_fast_ns() + retry_ms * 1000000UL;
 
 	/* wait a specific time after check base */
 	udelay(10);
 	wait_idle = false;
 
 	do {
-		time_checked = sched_clock();
+		time_checked = ktime_get_mono_fast_ns();
 		ufs_mtk_dbg_sel(hba);
 		val = ufshcd_readl(hba, REG_UFS_PROBE);
 
@@ -1056,6 +1056,8 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	bool clk_pwr_off = false;
 	int ret = 0;
+	struct ufs_hba_private *hba_priv =
+			(struct ufs_hba_private *)hba->android_vendor_data1;
 
 	/*
 	 * In case ufs_mtk_init() is not yet done, simply ignore.
@@ -1094,6 +1096,10 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 				mtk_btag_ufs_clk_gating(on);
 #endif
 		}
+
+		if (hba_priv->is_mcq_enabled)
+			ufs_mtk_mcq_disable_irq(hba);
+
 	} else if (on && status == POST_CHANGE) {
 		phy_power_on(host->mphy);
 		ufs_mtk_setup_ref_clk(hba, on);
@@ -1104,6 +1110,9 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 		if (host->qos_enabled)
 			mtk_btag_ufs_clk_gating(on);
 #endif
+
+		if (hba_priv->is_mcq_enabled)
+			ufs_mtk_mcq_enable_irq(hba);
 	}
 
 	return ret;
@@ -1195,13 +1204,12 @@ static void ufs_mtk_trace_vh_compl_command_vend_ss(struct ufs_hba *hba,
 }
 
 static void ufs_mtk_trace_vh_send_tm_command_vend_ss(void *data, struct ufs_hba *hba,
-			int tag, const char *str)
+			int tag, int str_t)
 {
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 
-	if (strcmp(str, "tm_complete") == 0)
+	if (str_t == UFS_TM_COMP)
 		ufsf_reset_lu(ufsf);
-
 }
 
 static void ufs_mtk_trace_vh_update_sdev_vend_ss(void *data, struct scsi_device *sdev)
@@ -3272,7 +3280,7 @@ static int ufs_mtk_suspend_check(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		s_node) {
 
 		/* If consumer is active, stop supplier enter suspend. */
-		if (link->consumer->power.runtime_status == RPM_ACTIVE) {
+		if (link->consumer->power.runtime_status != RPM_SUSPENDED) {
 			err = -EBUSY;
 			goto out;
 		}
@@ -3385,6 +3393,8 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 #endif
 
 	mt_irq_dump_status(hba->irq);
+
+	ufshcd_dump_regs(hba, 0, REG_INTERRUPT_STATUS, "Intr. Status (0x0):");
 
 	/* Dump ufshci register 0x 0~ 0xA0 */
 	ufshcd_dump_regs(hba, 0, UFSHCI_REG_SPACE_SIZE, "UFSHCI (0x0):");
@@ -3904,6 +3914,7 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
 int ufs_mtk_system_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -3970,6 +3981,7 @@ int ufs_mtk_system_resume(struct device *dev)
 
 	return ret;
 }
+#endif
 
 int ufs_mtk_runtime_suspend(struct device *dev)
 {
