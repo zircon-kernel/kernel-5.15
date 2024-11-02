@@ -21,10 +21,12 @@ POST_DEFCONFIG_CMDS="
 MAKE_GOALS="
 Image.gz
 modules
+mediatek/mt6886.dtb
 "
 
 FILES="
 arch/arm64/boot/Image.gz
+arch/arm64/boot/dts/mediatek/mt6886.dtb
 vmlinux
 System.map
 vmlinux.symvers
