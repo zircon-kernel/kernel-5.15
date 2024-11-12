@@ -2814,10 +2814,6 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 		}
 		reset_step_jeita_charge(info);
 	}
-	if(info->product_name == ZIRCON){
-		mod_delayed_work(system_wq,&info->delay_reset_full_flag_work, msecs_to_jiffies(60000));
-	}
-
 	mtk_charger_force_disable_power_path(info, CHG1_SETTING, false);
 	charger_dev_enable_powerpath(info->chg1_dev, true);
 	if (info->enable_vbat_mon)
